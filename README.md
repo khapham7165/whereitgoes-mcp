@@ -31,29 +31,76 @@ model to report what the tools return rather than recompute it.
 
 ## Tools
 
-25 read tools. Each one is a GET against a fixed allowlist of the app's own endpoints.
+15 tools: 13 reads and two propose-only writes. Each read is a GET against a fixed allowlist
+of the app's own endpoints. Tools that cover several related answers take a required `view`
+argument, and the answer comes back nested under the key named after that view.
 
 | Group | Tools |
 |---|---|
-| Start here | `get_portfolio_snapshot` - one call that summarises value, allocation, concentration, 30-day true P&L, target drift and BTC/ETH over the same window |
-| What you hold | `get_portfolio`, `get_dashboard`, `get_wallets`, `get_venues`, `get_portfolio_history` |
-| What happened | `get_movements`, `get_deposits`, `get_transfers`, `get_changes`, `get_capital_flow`, `get_activity_calendar` |
-| How it did | `get_pnl_overview`, `get_pnl_by_symbol`, `get_fees`, `get_income_by_source`, `get_income_timeseries`, `get_fiat_stats`, `get_asset_trade_stats` |
+| Start here | `get_portfolio` view `overview` - one call that summarises value, allocation, concentration, 30-day true P&L, target drift and BTC/ETH over the same window |
+| What you hold | `get_portfolio`, `get_connections` |
+| What happened | `get_movements`, `get_money_flows`, `get_changes`, `get_trading_activity` |
+| How it did | `get_performance`, `get_income`, `get_fees` |
 | Plans and alerts | `get_target_allocation`, `get_alerts` |
-| Pro plan | `get_risk_metrics` (drawdown, volatility, Sharpe, beta vs BTC or ETH), `get_portfolio_score` |
-| Housekeeping | `get_sync_status`, `list_profiles` |
+| Pro plan | `get_risk` (drawdown, volatility, Sharpe, beta vs BTC or ETH; 0-100 health score) |
+| Housekeeping | `list_profiles` |
+| Propose-only (you approve) | `set_target_allocation`, `propose_alert_change` (Pro) |
 
-Most tools take an optional `period` and a `profile` argument, so one question can read a
-named portfolio ("my trading account") without changing what the app shows.
+Every portfolio tool takes an optional `profile` argument, so one question can read a named
+portfolio ("my trading account") without changing what the app shows. Windowed views also
+take `period` (`last_24h`, `last_7d`, `last_30d`, `last_90d`, `ytd`, `all`); omitting it
+means all time. A view refuses an argument it does not take, rather than ignoring it.
 
-On a free account the two Pro tools answer with an `upgrade_required` result rather than an
-error, so the assistant can say what it would take instead of retrying.
+### Tool reference
 
-There is also one optional, propose-only tool, `set_target_allocation`, available only if
-you grant the separate `portfolio:write` scope when connecting. It does not change anything
-when called: it parks a proposal and returns a link, and the change lands only after you
-open that link in your own browser, read a server-rendered before/after diff, and click
-Apply. See [Security model](#security-model).
+| Tool | Views | Answers |
+|---|---|---|
+| `get_portfolio` | `overview`, `holdings`, `recent_change` | The present state: whole-portfolio summary; every asset with quantity, value, weight, average cost and P&L; 24h / 7d / 30d change and when the last sync finished |
+| `get_performance` | `pnl`, `history`, `realized_by_pair` | True P&L for a period with your own deposits and withdrawals stripped out; daily value series ("what was I worth in June"); realized P&L ranked by trading pair |
+| `get_risk` | `metrics`, `score` | Pro: drawdown, volatility, Sharpe, beta and correlation vs BTC or ETH; 0-100 structure score with pillar sub-scores |
+| `get_movements` | | Search the ledger: deposits, withdrawals, transfers, income, trades, filterable by asset, venue, source, status |
+| `get_money_flows` | `capital_flow`, `deposits`, `transfers`, `fiat` | Money in and out in USD per month or week; exchange deposits and their cost-basis status; withdrawals matched to deposits between your own accounts; fiat put in and cashed out per local currency |
+| `get_income` | `by_category`, `by_asset` | Income totals by category (staking, lending, DeFi, rewards, airdrops); income over time per asset |
+| `get_fees` | | Fees by venue, asset and type, valued in USD |
+| `get_trading_activity` | `asset_totals`, `calendar` | Lifetime buy and sell totals per asset; per-day trade and movement counts, volume and P&L |
+| `get_changes` | | Ranked notable events for a period: big flows, allocation shifts, drawdowns, to-dos |
+| `get_connections` | `exchanges`, `wallets`, `sync_status` | Connected exchanges (masked key hints only, never keys); tracked on-chain addresses; whether a sync is running or queued |
+| `get_target_allocation` | | The allocation plan you set, with tolerance bands |
+| `get_alerts` | | Price and value alerts you configured |
+| `list_profiles` | | The portfolios on your account, to pass as `profile` |
+| `set_target_allocation` | | Propose-only: drafts a new plan you approve in your browser (needs `portfolio:write`) |
+| `propose_alert_change` | | Propose-only, Pro: drafts a new alert, an edit to one, or its deletion (`action` = `create`, `update`, `delete`), which you approve in your browser (needs `portfolio:write`) |
+
+Every tool declares an `outputSchema` and returns `structuredContent` alongside a JSON text
+block, so a client can read typed fields (units, currency and ordering are described in the
+schema) instead of parsing prose. A list longer than 200 rows is cut, and the answer then
+carries a `truncated` field and a `<field>_note` saying how many rows were kept and which.
+
+Version 1.2.0 renamed the 1.1.x tools (26 became 15, counting the new `propose_alert_change`). If you saved a prompt or config that
+names an old tool: `get_portfolio_snapshot`, `get_dashboard` -> `get_portfolio`;
+`get_pnl_overview`, `get_portfolio_history`, `get_pnl_by_symbol` -> `get_performance`;
+`get_risk_metrics`, `get_portfolio_score` -> `get_risk`; `get_capital_flow`, `get_deposits`,
+`get_transfers`, `get_fiat_stats` -> `get_money_flows`; `get_income_by_source`,
+`get_income_timeseries` -> `get_income`; `get_asset_trade_stats`, `get_activity_calendar` ->
+`get_trading_activity`; `get_venues`, `get_wallets`, `get_sync_status` -> `get_connections`.
+
+Every read tool is annotated `readOnlyHint: true`, `destructiveHint: false`,
+`idempotentHint: true`, `openWorldHint: false`. The two write tools are annotated
+`readOnlyHint: false`, `destructiveHint: true`, so a cautious client asks before calling
+them, even though neither applies anything on the call.
+
+On a free account both `get_risk` views answer with an `upgrade_required` result rather than
+an error, so the assistant can say what it would take instead of retrying.
+
+There are also two optional, propose-only tools, available only if you grant the separate
+`portfolio:write` scope when connecting: `set_target_allocation` drafts a target plan, and
+`propose_alert_change` drafts a price or value alert (create, edit or delete, including
+whether it also emails you). Neither changes anything when called: each parks a proposal and
+returns a link, and the change lands only after you open that link in your own browser, read
+a server-rendered before/after diff, and click Apply. Alerts are a Pro feature, so on a free
+account `propose_alert_change` answers `upgrade_required` instead of drafting anything, and
+a draft is checked by the same validator the app's alert form uses. See
+[Security model](#security-model).
 
 ![The tool list on the connect-ai page](images/connect-ai-tools.png)
 
