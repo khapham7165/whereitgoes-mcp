@@ -1,0 +1,7 @@
+{
+  "mcpServers": {
+    "whereitgoes": {
+      "url": "https://api.whereitgoes.money/api/mcp"
+    }
+  }
+}
