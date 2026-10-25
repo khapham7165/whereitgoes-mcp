@@ -1,0 +1,22 @@
+{
+  "name": "whereitgoes",
+  "displayName": "WhereItGoes",
+  "version": "1.2.0",
+  "description": "Read-only crypto portfolio for your AI: holdings across 11 exchanges and 20+ chains, FIFO P&L, fees and money flows. 15 tools, OAuth sign-in, no API keys pasted into chats.",
+  "author": {
+    "name": "WhereItGoes",
+    "email": "support@whereitgoes.money"
+  },
+  "homepage": "https://whereitgoes.money/connect-ai",
+  "repository": "https://github.com/khapham7165/whereitgoes-mcp",
+  "license": "MIT",
+  "keywords": [
+    "crypto",
+    "portfolio",
+    "pnl",
+    "finance",
+    "mcp"
+  ],
+  "logo": "images/logo.png",
+  "mcpServers": "./mcp.json"
+}
