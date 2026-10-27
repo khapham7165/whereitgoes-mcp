@@ -1,5 +1,7 @@
 # WhereItGoes MCP server
 
+[![WhereItGoes MCP server on AI Agents Listing](https://aiagentslisting.com/whereitgoes-mcp-server/badge.svg?claim=f5b60f1a5bdcac42745914a0d9ec6ec4)](https://aiagentslisting.com/mcp/whereitgoes-mcp-server)
+
 Ask ChatGPT, Claude or Cursor about **your own crypto portfolio**: real holdings across every
 exchange and on-chain wallet you track, full movement history, FIFO profit and loss, fees,
 income and risk. No API key to paste, free on every account, revocable in one click.
